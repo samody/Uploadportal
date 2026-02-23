@@ -3,38 +3,66 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DropShare — Secure File Portal</title>
+<title>Secure File Portal</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="page-center">
-  <div class="card" style="text-align:center;max-width:500px">
-    <div class="brand" style="justify-content:center;margin-bottom:24px">
-      <div class="brand-icon" style="width:56px;height:56px;font-size:26px">📁</div>
-      <div>
-        <div class="brand-name" style="font-size:24px">DropShare</div>
-        <div class="brand-sub">Secure File Portal</div>
+  <div class="card" style="text-align:center;max-width:440px">
+
+    <div class="portal-emblem">✦</div>
+
+    <h1 style="margin-bottom:8px">Access Portal</h1>
+    <p class="subtitle">Enter your access code to continue.</p>
+
+    <div id="code-alert" class="alert"></div>
+
+    <form id="code-form">
+      <div class="form-group">
+        <div class="code-input-row">
+          <input type="text" id="code-input" maxlength="8" placeholder="_ _ _ _ _ _"
+                 autocomplete="off" spellcheck="false" autofocus>
+          <button type="submit" class="btn btn-primary">Go</button>
+        </div>
       </div>
-    </div>
-
-    <p class="subtitle" style="margin-bottom:32px">
-      Upload and share files securely using access codes or direct links.
-      All transfers are managed by your admin.
-    </p>
-
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <a href="/upload" class="btn btn-primary btn-full" style="font-size:15px;padding:12px">
-        ☁️ Upload a File
-      </a>
-      <a href="/share" class="btn btn-ghost btn-full" style="font-size:15px;padding:12px">
-        ⬇ Download / Access Shared File
-      </a>
-    </div>
+    </form>
 
     <p class="mt-24 text-muted text-sm">
-      Need to manage files? <a href="/admin">Admin Portal</a>
+      <a href="/admin">Admin Access</a>
     </p>
   </div>
 </div>
+
+<script>
+document.getElementById('code-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (!code) return;
+
+  const alertEl = document.getElementById('code-alert');
+  alertEl.classList.remove('show');
+
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const r = await fetch(`/api/resolve-code?code=${encodeURIComponent(code)}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Invalid code');
+
+    if (data.type === 'upload') {
+      location.href = `/upload?code=${encodeURIComponent(data.code)}`;
+    } else if (data.type === 'share') {
+      location.href = `/share?code=${encodeURIComponent(data.code)}`;
+    }
+  } catch (err) {
+    alertEl.className = 'alert alert-error show';
+    alertEl.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = 'Go';
+  }
+});
+</script>
 </body>
 </html>

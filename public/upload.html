@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Upload Files — DropShare</title>
+<title>Upload Files</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -12,14 +12,13 @@
 <div id="code-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">📁</div>
+      <div class="brand-icon">☁️</div>
       <div>
-        <div class="brand-name">DropShare</div>
-        <div class="brand-sub">Secure File Upload</div>
+        <div class="brand-sub">Secure Upload</div>
       </div>
     </div>
     <h1>Enter Access Code</h1>
-    <p class="subtitle">Enter the upload code you received to continue.</p>
+    <p class="subtitle">Enter your upload code to continue.</p>
     <div id="code-alert" class="alert"></div>
     <form id="code-form">
       <div class="form-group">
@@ -30,6 +29,7 @@
         </div>
       </div>
     </form>
+    <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
 
@@ -37,9 +37,8 @@
 <div id="upload-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">📁</div>
+      <div class="brand-icon">☁️</div>
       <div>
-        <div class="brand-name">DropShare</div>
         <div class="brand-sub" id="upload-label">Secure Upload</div>
       </div>
     </div>
@@ -65,6 +64,7 @@
     </div>
 
     <p class="mt-8 text-muted text-sm" style="text-align:center">Max file size: <span id="max-size-hint">100 MB</span> per file</p>
+    <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
 
@@ -72,10 +72,11 @@
 <div id="success-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="success-icon">✅</div>
-    <div class="success-title">Upload Complete!</div>
+    <div class="success-title">Upload Complete</div>
     <div class="success-sub" id="success-count"></div>
     <div class="file-list" id="success-file-list"></div>
     <button class="btn btn-ghost btn-full mt-16" id="upload-more-btn">Upload More Files</button>
+    <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
 
@@ -247,7 +248,6 @@ uploadBtn.addEventListener('click', async () => {
     progressBar.style.width = '100%';
 
     // Show success
-    const names = result.files.map(f => f.name);
     document.getElementById('upload-screen').style.display = 'none';
     document.getElementById('success-screen').style.display = 'flex';
     document.getElementById('success-count').textContent =

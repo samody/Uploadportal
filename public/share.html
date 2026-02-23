@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Download File — DropShare</title>
+<title>Download File</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -12,9 +12,8 @@
 <div id="code-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">📁</div>
+      <div class="brand-icon">📡</div>
       <div>
-        <div class="brand-name">DropShare</div>
         <div class="brand-sub">File Access</div>
       </div>
     </div>
@@ -30,6 +29,7 @@
         </div>
       </div>
     </form>
+    <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
 
@@ -37,9 +37,8 @@
 <div id="download-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">📁</div>
+      <div class="brand-icon">📡</div>
       <div>
-        <div class="brand-name">DropShare</div>
         <div class="brand-sub" id="share-label">Shared File</div>
       </div>
     </div>
@@ -65,6 +64,7 @@
     <p class="mt-8 text-muted text-sm" style="text-align:center">
       The download will start automatically when you click the button above.
     </p>
+    <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
 
@@ -74,7 +74,8 @@
     <div class="success-icon">🔒</div>
     <div class="success-title" id="error-title">Link Not Found</div>
     <div class="success-sub" id="error-msg">This share link is invalid or has expired.</div>
-    <button class="btn btn-ghost btn-full mt-16" onclick="location.href='/share'">Try Another Code</button>
+    <button class="btn btn-ghost btn-full mt-16" onclick="location.href='/'">Try Another Code</button>
+    <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
 

@@ -292,6 +292,26 @@ app.get('/api/share/download', (req, res) => {
   res.download(filePath, sl.original_name);
 });
 
+// GET /api/resolve-code?code=XXXXXX  — determines if code is upload or share
+app.get('/api/resolve-code', (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).json({ error: 'Code required' });
+  const upper = code.toUpperCase();
+
+  const uploadLink = db.prepare('SELECT * FROM upload_links WHERE code=? AND active=1').get(upper);
+  if (uploadLink && !isExpired(uploadLink.expires_at) &&
+      !(uploadLink.max_files !== null && uploadLink.files_uploaded >= uploadLink.max_files)) {
+    return res.json({ type: 'upload', code: upper });
+  }
+
+  const shareLink = db.prepare('SELECT * FROM share_links WHERE code=? AND active=1').get(upper);
+  if (shareLink && !isExpired(shareLink.expires_at)) {
+    return res.json({ type: 'share', code: upper });
+  }
+
+  return res.status(404).json({ error: 'Invalid or expired access code' });
+});
+
 // ── SPA fallback ──────────────────────────────────────────────────────────────
 app.get('/admin*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/upload*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'upload.html')));
