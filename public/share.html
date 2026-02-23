@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download File — DropShare</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ── Code Entry ─────────────────────────────────────────────────────────── -->
+<div id="code-screen" class="page-center" style="display:none">
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">📁</div>
+      <div>
+        <div class="brand-name">DropShare</div>
+        <div class="brand-sub">File Access</div>
+      </div>
+    </div>
+    <h1>Enter Access Code</h1>
+    <p class="subtitle">Enter the share code you received to download the file.</p>
+    <div id="code-alert" class="alert"></div>
+    <form id="code-form">
+      <div class="form-group">
+        <label>Share Code</label>
+        <div class="code-input-row">
+          <input type="text" id="code-input" maxlength="8" placeholder="XXXXXX" autocomplete="off" spellcheck="false">
+          <button type="submit" class="btn btn-primary">Go</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Download Screen ───────────────────────────────────────────────────── -->
+<div id="download-screen" class="page-center" style="display:none">
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">📁</div>
+      <div>
+        <div class="brand-name">DropShare</div>
+        <div class="brand-sub" id="share-label">Shared File</div>
+      </div>
+    </div>
+
+    <div id="download-alert" class="alert"></div>
+
+    <div class="file-info-card">
+      <div class="file-big-icon" id="file-icon">📄</div>
+      <div class="file-big-name" id="file-name">filename.ext</div>
+      <div class="file-big-size" id="file-size">0 B</div>
+    </div>
+
+    <div class="mt-16">
+      <div class="flex items-center justify-between mt-4 text-sm text-muted" style="margin-bottom:16px">
+        <span>Downloads: <strong id="dl-count" style="color:var(--text)">0</strong></span>
+        <span id="expires-info"></span>
+      </div>
+      <button class="btn btn-success btn-full" id="download-btn">
+        ⬇ Download File
+      </button>
+    </div>
+
+    <p class="mt-8 text-muted text-sm" style="text-align:center">
+      The download will start automatically when you click the button above.
+    </p>
+  </div>
+</div>
+
+<!-- ── Error Screen ───────────────────────────────────────────────────────── -->
+<div id="error-screen" class="page-center" style="display:none">
+  <div class="card" style="text-align:center">
+    <div class="success-icon">🔒</div>
+    <div class="success-title" id="error-title">Link Not Found</div>
+    <div class="success-sub" id="error-msg">This share link is invalid or has expired.</div>
+    <button class="btn btn-ghost btn-full mt-16" onclick="location.href='/share'">Try Another Code</button>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(location.search);
+let TOKEN = params.get('token');
+let CODE  = params.get('code');
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024**2) return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1024**3) return (bytes/1024**2).toFixed(1) + ' MB';
+  return (bytes/1024**3).toFixed(2) + ' GB';
+}
+
+function fileIcon(name) {
+  const ext = (name || '').split('.').pop().toLowerCase();
+  const map = {
+    pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📋', pptx:'📋',
+    zip:'🗜', rar:'🗜', '7z':'🗜', tar:'🗜', gz:'🗜',
+    jpg:'🖼', jpeg:'🖼', png:'🖼', gif:'🖼', webp:'🖼', svg:'🖼',
+    mp4:'🎬', mov:'🎬', avi:'🎬', mkv:'🎬',
+    mp3:'🎵', wav:'🎵', flac:'🎵',
+    js:'💻', ts:'💻', py:'💻', html:'💻', css:'💻', json:'💻',
+    txt:'📃', md:'📃', csv:'📃',
+  };
+  return map[ext] || '📎';
+}
+
+function showAlert(el, msg, type = 'error') {
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+}
+
+function fmtExpiry(expiresAt) {
+  if (!expiresAt) return '';
+  const d = new Date(expiresAt);
+  const now = new Date();
+  if (d < now) return 'Expired';
+  const diff = d - now;
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  if (h > 48) return `Expires ${d.toLocaleDateString()}`;
+  if (h > 0) return `Expires in ${h}h ${m}m`;
+  return `Expires in ${m}m`;
+}
+
+async function verify(token, code) {
+  const q = token ? `token=${token}` : `code=${code}`;
+  const r = await fetch(`/api/share/verify?${q}`);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Invalid');
+  return data;
+}
+
+function showDownloadScreen(info) {
+  document.getElementById('code-screen').style.display = 'none';
+  document.getElementById('download-screen').style.display = 'flex';
+  document.getElementById('share-label').textContent = info.label || 'Shared File';
+  document.getElementById('file-icon').textContent = fileIcon(info.original_name);
+  document.getElementById('file-name').textContent = info.original_name;
+  document.getElementById('file-size').textContent = fmtSize(info.size);
+  document.getElementById('dl-count').textContent = info.download_count;
+}
+
+function showError(title, msg) {
+  document.getElementById('error-title').textContent = title;
+  document.getElementById('error-msg').textContent = msg;
+  document.getElementById('code-screen').style.display = 'none';
+  document.getElementById('download-screen').style.display = 'none';
+  document.getElementById('error-screen').style.display = 'flex';
+}
+
+// ── Code form ─────────────────────────────────────────────────────────────
+document.getElementById('code-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (!code) return;
+  const alert = document.getElementById('code-alert');
+  try {
+    const info = await verify(null, code);
+    CODE = code;
+    showDownloadScreen(info);
+  } catch(err) {
+    showAlert(alert, err.message);
+  }
+});
+
+// ── Download button ───────────────────────────────────────────────────────
+document.getElementById('download-btn').addEventListener('click', () => {
+  const q = TOKEN ? `token=${TOKEN}` : `code=${CODE}`;
+  // Trigger download via hidden anchor
+  const a = document.createElement('a');
+  a.href = `/api/share/download?${q}`;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  // Optimistically increment counter
+  const count = document.getElementById('dl-count');
+  count.textContent = parseInt(count.textContent) + 1;
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(async () => {
+  if (TOKEN || CODE) {
+    try {
+      const info = await verify(TOKEN, CODE);
+      showDownloadScreen(info);
+    } catch(err) {
+      if (err.message.toLowerCase().includes('expired')) {
+        showError('Link Expired', err.message);
+      } else {
+        // Fall back to code entry
+        document.getElementById('code-screen').style.display = 'flex';
+        showAlert(document.getElementById('code-alert'), err.message);
+      }
+    }
+  } else {
+    document.getElementById('code-screen').style.display = 'flex';
+  }
+})();
+</script>
+</body>
+</html>

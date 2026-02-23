@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Portal — DropShare</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ── Login Screen ──────────────────────────────────────────────────────── -->
+<div id="login-screen" class="page-center">
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">📁</div>
+      <div>
+        <div class="brand-name">DropShare</div>
+        <div class="brand-sub">Admin Portal</div>
+      </div>
+    </div>
+    <h1>Sign in</h1>
+    <p class="subtitle">Enter your admin password to continue.</p>
+    <div id="login-alert" class="alert alert-error"></div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Admin password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── Admin Shell ────────────────────────────────────────────────────────── -->
+<div id="admin-shell" class="admin-shell" style="display:none">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">📁</div>
+      <div>
+        <div class="brand-name">DropShare</div>
+        <div class="brand-sub">Admin</div>
+      </div>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-item active" data-section="upload-links">🔗 Upload Links</div>
+      <div class="nav-item" data-section="files">📄 Files</div>
+      <div class="nav-item" data-section="share-links">🌐 Share Links</div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-ghost btn-full btn-sm" id="logout-btn">↩ Sign out</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- ── Upload Links ──────────────────────────────────────────────────── -->
+    <div class="section active" id="section-upload-links">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 style="margin:0">Upload Links</h2>
+          <button class="btn btn-primary btn-sm" id="new-upload-link-btn">+ New Link</button>
+        </div>
+        <div id="upload-links-alert" class="alert" style="margin:16px 20px 0;"></div>
+        <div style="overflow-x:auto">
+          <table id="upload-links-table">
+            <thead><tr>
+              <th>Label</th><th>Code</th><th>Link</th><th>Files</th><th>Expires</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="upload-links-body">
+              <tr class="empty-row"><td colspan="7">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Files ────────────────────────────────────────────────────────── -->
+    <div class="section" id="section-files">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 style="margin:0">Uploaded Files</h2>
+          <button class="btn btn-ghost btn-sm" id="refresh-files-btn">↻ Refresh</button>
+        </div>
+        <div id="files-alert" class="alert" style="margin:16px 20px 0;"></div>
+        <div style="overflow-x:auto">
+          <table id="files-table">
+            <thead><tr>
+              <th>Name</th><th>Size</th><th>Uploaded</th><th>Via Link</th><th></th>
+            </tr></thead>
+            <tbody id="files-body">
+              <tr class="empty-row"><td colspan="5">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Share Links ───────────────────────────────────────────────────── -->
+    <div class="section" id="section-share-links">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 style="margin:0">Share Links</h2>
+          <button class="btn btn-ghost btn-sm" id="refresh-share-btn">↻ Refresh</button>
+        </div>
+        <div id="share-links-alert" class="alert" style="margin:16px 20px 0;"></div>
+        <div style="overflow-x:auto">
+          <table id="share-links-table">
+            <thead><tr>
+              <th>File</th><th>Label</th><th>Code</th><th>Link</th><th>Downloads</th><th>Expires</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="share-links-body">
+              <tr class="empty-row"><td colspan="8">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── New Upload Link Modal ─────────────────────────────────────────────── -->
+<div class="modal-overlay" id="new-upload-modal">
+  <div class="modal">
+    <div class="modal-title">Create Upload Link</div>
+    <div class="form-group">
+      <label>Label (optional)</label>
+      <input type="text" id="ul-label" placeholder="e.g. Project assets for client">
+    </div>
+    <div class="form-group">
+      <label>Max Files (optional)</label>
+      <input type="number" id="ul-max-files" placeholder="Leave blank for unlimited" min="1">
+    </div>
+    <div class="form-group">
+      <label>Expires in (hours, optional)</label>
+      <input type="number" id="ul-expires" placeholder="Leave blank = never" min="1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="ul-cancel">Cancel</button>
+      <button class="btn btn-primary" id="ul-create">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── New Share Link Modal ──────────────────────────────────────────────── -->
+<div class="modal-overlay" id="new-share-modal">
+  <div class="modal">
+    <div class="modal-title">Create Share Link</div>
+    <input type="hidden" id="sl-file-id">
+    <div class="form-group">
+      <label>File</label>
+      <input type="text" id="sl-file-name" disabled>
+    </div>
+    <div class="form-group">
+      <label>Label (optional)</label>
+      <input type="text" id="sl-label" placeholder="e.g. Share with client">
+    </div>
+    <div class="form-group">
+      <label>Expires in (hours, optional)</label>
+      <input type="number" id="sl-expires" placeholder="Leave blank = never" min="1">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="sl-cancel">Cancel</button>
+      <button class="btn btn-primary" id="sl-create">Create Share Link</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Result Modal (show link + code) ───────────────────────────────────── -->
+<div class="modal-overlay" id="result-modal">
+  <div class="modal">
+    <div class="modal-title" id="result-title">Link Created</div>
+    <div id="result-body"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="result-close">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = window.location.origin;
+let SESSION = localStorage.getItem('admin_session') || '';
+
+// ── Auth helpers ──────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'x-session-id': SESSION },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+function logout() {
+  api('POST', '/api/admin/logout').catch(() => {});
+  SESSION = '';
+  localStorage.removeItem('admin_session');
+  showLogin();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-shell').style.display = 'none';
+}
+function showAdmin() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('admin-shell').style.display = 'flex';
+  loadAll();
+}
+
+// ── Alert helpers ─────────────────────────────────────────────────────────
+function showAlert(el, msg, type = 'error') {
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+  if (type !== 'error') setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024**2) return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1024**3) return (bytes/1024**2).toFixed(1) + ' MB';
+  return (bytes/1024**3).toFixed(2) + ' GB';
+}
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleString(undefined, { dateStyle:'medium', timeStyle:'short' });
+}
+function isExpired(s) { return s && new Date(s) < new Date(); }
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  });
+}
+
+// ── Result modal ──────────────────────────────────────────────────────────
+function showResult(title, linkUrl, code) {
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-body').innerHTML = `
+    <div class="form-group">
+      <label>Access Code</label>
+      <div class="code-display">${code}</div>
+    </div>
+    <div class="form-group">
+      <label>Direct Link</label>
+      <div class="copy-row">
+        <input type="text" value="${linkUrl}" id="result-link-input" readonly>
+        <button class="btn btn-ghost btn-sm" onclick="copyText('${linkUrl}');this.textContent='Copied!'">Copy</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('result-modal').classList.add('show');
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pw = document.getElementById('login-password').value;
+  const alert = document.getElementById('login-alert');
+  try {
+    const { sessionId } = await api('POST', '/api/admin/login', { password: pw });
+    SESSION = sessionId;
+    localStorage.setItem('admin_session', SESSION);
+    showAdmin();
+  } catch (err) {
+    showAlert(alert, err.message);
+  }
+});
+document.getElementById('logout-btn').addEventListener('click', logout);
+
+// ── Nav ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('section-' + item.dataset.section).classList.add('active');
+    if (item.dataset.section === 'upload-links') loadUploadLinks();
+    if (item.dataset.section === 'files') loadFiles();
+    if (item.dataset.section === 'share-links') loadShareLinks();
+  });
+});
+
+// ── Upload Links ──────────────────────────────────────────────────────────
+async function loadUploadLinks() {
+  const tbody = document.getElementById('upload-links-body');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
+  try {
+    const links = await api('GET', '/api/admin/upload-links');
+    if (!links.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No upload links yet.</td></tr>'; return; }
+    tbody.innerHTML = links.map(l => {
+      const expired = isExpired(l.expires_at);
+      const limitHit = l.max_files !== null && l.files_uploaded >= l.max_files;
+      const active = l.active && !expired && !limitHit;
+      const uploadUrl = `${BASE}/upload?token=${l.token}`;
+      return `<tr>
+        <td>${l.label || '<span class="text-muted">—</span>'}</td>
+        <td><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${l.code}</span></td>
+        <td>
+          <div class="copy-row" style="gap:4px">
+            <input type="text" value="${uploadUrl}" style="font-size:11px" readonly>
+            <button class="btn btn-ghost btn-sm" onclick="copyText('${uploadUrl}');this.textContent='✓'">Copy</button>
+          </div>
+        </td>
+        <td>${l.files_uploaded}${l.max_files !== null ? ' / ' + l.max_files : ''}</td>
+        <td>${fmtDate(l.expires_at)}</td>
+        <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? 'Active' : expired ? 'Expired' : limitHit ? 'Full' : 'Disabled'}</span></td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteUploadLink(${l.id})">Revoke</button></td>
+      </tr>`;
+    }).join('');
+  } catch(err) {
+    showAlert(document.getElementById('upload-links-alert'), err.message);
+  }
+}
+
+document.getElementById('new-upload-link-btn').addEventListener('click', () => {
+  document.getElementById('ul-label').value = '';
+  document.getElementById('ul-max-files').value = '';
+  document.getElementById('ul-expires').value = '';
+  document.getElementById('new-upload-modal').classList.add('show');
+});
+document.getElementById('ul-cancel').addEventListener('click', () => document.getElementById('new-upload-modal').classList.remove('show'));
+document.getElementById('ul-create').addEventListener('click', async () => {
+  const label = document.getElementById('ul-label').value.trim();
+  const max_files = document.getElementById('ul-max-files').value || null;
+  const expires_in_hours = document.getElementById('ul-expires').value || null;
+  try {
+    const link = await api('POST', '/api/admin/upload-links', {
+      label,
+      max_files: max_files ? parseInt(max_files) : null,
+      expires_in_hours: expires_in_hours ? parseInt(expires_in_hours) : null,
+    });
+    document.getElementById('new-upload-modal').classList.remove('show');
+    await loadUploadLinks();
+    showResult('Upload Link Created', `${BASE}/upload?token=${link.token}`, link.code);
+  } catch(err) {
+    showAlert(document.getElementById('upload-links-alert'), err.message);
+  }
+});
+
+async function deleteUploadLink(id) {
+  if (!confirm('Revoke this upload link? Existing files are kept.')) return;
+  try {
+    await api('DELETE', `/api/admin/upload-links/${id}`);
+    await loadUploadLinks();
+  } catch(err) {
+    showAlert(document.getElementById('upload-links-alert'), err.message);
+  }
+}
+
+// ── Files ─────────────────────────────────────────────────────────────────
+async function loadFiles() {
+  const tbody = document.getElementById('files-body');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
+  try {
+    const files = await api('GET', '/api/admin/files');
+    if (!files.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No files uploaded yet.</td></tr>'; return; }
+    tbody.innerHTML = files.map(f => `<tr>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(f.original_name)}">${escHtml(f.original_name)}</td>
+      <td class="text-muted">${fmtSize(f.size)}</td>
+      <td class="text-muted">${fmtDate(f.uploaded_at)}</td>
+      <td>${f.upload_label ? escHtml(f.upload_label) : (f.upload_code || '<span class="text-muted">—</span>')}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="openShareModal(${f.id},'${escHtml(f.original_name).replace(/'/g,'\\&apos;')}')">Share</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})">Delete</button>
+      </td>
+    </tr>`).join('');
+  } catch(err) {
+    showAlert(document.getElementById('files-alert'), err.message);
+  }
+}
+
+document.getElementById('refresh-files-btn').addEventListener('click', loadFiles);
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openShareModal(fileId, fileName) {
+  document.getElementById('sl-file-id').value = fileId;
+  document.getElementById('sl-file-name').value = fileName;
+  document.getElementById('sl-label').value = '';
+  document.getElementById('sl-expires').value = '';
+  document.getElementById('new-share-modal').classList.add('show');
+}
+
+async function deleteFile(id) {
+  if (!confirm('Permanently delete this file? All share links for it will break.')) return;
+  try {
+    await api('DELETE', `/api/admin/files/${id}`);
+    await loadFiles();
+  } catch(err) {
+    showAlert(document.getElementById('files-alert'), err.message);
+  }
+}
+
+// ── Share Links ───────────────────────────────────────────────────────────
+async function loadShareLinks() {
+  const tbody = document.getElementById('share-links-body');
+  tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Loading…</td></tr>';
+  try {
+    const links = await api('GET', '/api/admin/share-links');
+    if (!links.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No share links yet.</td></tr>'; return; }
+    tbody.innerHTML = links.map(sl => {
+      const expired = isExpired(sl.expires_at);
+      const active = sl.active && !expired;
+      const shareUrl = `${BASE}/share?token=${sl.token}`;
+      return `<tr>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(sl.original_name)}</td>
+        <td>${sl.label || '<span class="text-muted">—</span>'}</td>
+        <td><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${sl.code}</span></td>
+        <td>
+          <div class="copy-row" style="gap:4px">
+            <input type="text" value="${shareUrl}" style="font-size:11px" readonly>
+            <button class="btn btn-ghost btn-sm" onclick="copyText('${shareUrl}');this.textContent='✓'">Copy</button>
+          </div>
+        </td>
+        <td>${sl.download_count}</td>
+        <td>${fmtDate(sl.expires_at)}</td>
+        <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? 'Active' : expired ? 'Expired' : 'Revoked'}</span></td>
+        <td><button class="btn btn-danger btn-sm" onclick="revokeShareLink(${sl.id})">Revoke</button></td>
+      </tr>`;
+    }).join('');
+  } catch(err) {
+    showAlert(document.getElementById('share-links-alert'), err.message);
+  }
+}
+
+document.getElementById('refresh-share-btn').addEventListener('click', loadShareLinks);
+document.getElementById('sl-cancel').addEventListener('click', () => document.getElementById('new-share-modal').classList.remove('show'));
+document.getElementById('sl-create').addEventListener('click', async () => {
+  const file_id = parseInt(document.getElementById('sl-file-id').value);
+  const label = document.getElementById('sl-label').value.trim();
+  const expires_in_hours = document.getElementById('sl-expires').value || null;
+  try {
+    const sl = await api('POST', '/api/admin/share-links', {
+      file_id, label,
+      expires_in_hours: expires_in_hours ? parseInt(expires_in_hours) : null,
+    });
+    document.getElementById('new-share-modal').classList.remove('show');
+    showResult('Share Link Created', `${BASE}/share?token=${sl.token}`, sl.code);
+  } catch(err) {
+    showAlert(document.getElementById('share-links-alert'), err.message);
+  }
+});
+
+async function revokeShareLink(id) {
+  if (!confirm('Revoke this share link?')) return;
+  try {
+    await api('DELETE', `/api/admin/share-links/${id}`);
+    await loadShareLinks();
+  } catch(err) {
+    showAlert(document.getElementById('share-links-alert'), err.message);
+  }
+}
+
+// ── Result Modal close ────────────────────────────────────────────────────
+document.getElementById('result-close').addEventListener('click', () => {
+  document.getElementById('result-modal').classList.remove('show');
+});
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+function loadAll() {
+  loadUploadLinks();
+}
+
+// Check for existing session
+if (SESSION) {
+  api('GET', '/api/admin/upload-links').then(() => showAdmin()).catch(() => showLogin());
+} else {
+  showLogin();
+}
+</script>
+</body>
+</html>

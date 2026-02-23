@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload Files — DropShare</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ── Code Entry ─────────────────────────────────────────────────────────── -->
+<div id="code-screen" class="page-center" style="display:none">
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">📁</div>
+      <div>
+        <div class="brand-name">DropShare</div>
+        <div class="brand-sub">Secure File Upload</div>
+      </div>
+    </div>
+    <h1>Enter Access Code</h1>
+    <p class="subtitle">Enter the upload code you received to continue.</p>
+    <div id="code-alert" class="alert"></div>
+    <form id="code-form">
+      <div class="form-group">
+        <label>Upload Code</label>
+        <div class="code-input-row">
+          <input type="text" id="code-input" maxlength="8" placeholder="XXXXXX" autocomplete="off" spellcheck="false">
+          <button type="submit" class="btn btn-primary">Go</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Upload Screen ──────────────────────────────────────────────────────── -->
+<div id="upload-screen" class="page-center" style="display:none">
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">📁</div>
+      <div>
+        <div class="brand-name">DropShare</div>
+        <div class="brand-sub" id="upload-label">Secure Upload</div>
+      </div>
+    </div>
+
+    <div id="upload-alert" class="alert"></div>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="drop-zone-icon">☁️</div>
+      <strong>Drop files here</strong>
+      <p>or click to browse</p>
+      <p class="mt-8 text-sm text-muted" id="limit-hint"></p>
+      <input type="file" id="file-input" multiple>
+    </div>
+
+    <div class="file-list" id="file-list"></div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+
+    <div class="mt-16 flex gap-8">
+      <button class="btn btn-primary btn-full" id="upload-btn" disabled>Upload Files</button>
+    </div>
+
+    <p class="mt-8 text-muted text-sm" style="text-align:center">Max file size: <span id="max-size-hint">100 MB</span> per file</p>
+  </div>
+</div>
+
+<!-- ── Success Screen ─────────────────────────────────────────────────────── -->
+<div id="success-screen" class="page-center" style="display:none">
+  <div class="card">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Upload Complete!</div>
+    <div class="success-sub" id="success-count"></div>
+    <div class="file-list" id="success-file-list"></div>
+    <button class="btn btn-ghost btn-full mt-16" id="upload-more-btn">Upload More Files</button>
+  </div>
+</div>
+
+<script>
+// ── Resolve token / code from URL ─────────────────────────────────────────
+const params = new URLSearchParams(location.search);
+let TOKEN = params.get('token');
+let CODE  = params.get('code');
+
+let selectedFiles = [];
+let linkInfo = null;
+
+function fmtSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024**2) return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1024**3) return (bytes/1024**2).toFixed(1) + ' MB';
+  return (bytes/1024**3).toFixed(2) + ' GB';
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  const map = {
+    pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📋', pptx:'📋',
+    zip:'🗜', rar:'🗜', '7z':'🗜', tar:'🗜', gz:'🗜',
+    jpg:'🖼', jpeg:'🖼', png:'🖼', gif:'🖼', webp:'🖼', svg:'🖼',
+    mp4:'🎬', mov:'🎬', avi:'🎬', mkv:'🎬',
+    mp3:'🎵', wav:'🎵', flac:'🎵',
+    js:'💻', ts:'💻', py:'💻', html:'💻', css:'💻', json:'💻',
+    txt:'📃', md:'📃', csv:'📃',
+  };
+  return map[ext] || '📎';
+}
+
+function showAlert(el, msg, type = 'error') {
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+}
+function hideAlert(el) { el.classList.remove('show'); }
+
+// ── Verify link/code ──────────────────────────────────────────────────────
+async function verify(token, code) {
+  const q = token ? `token=${token}` : `code=${code}`;
+  const r = await fetch(`/api/upload/verify?${q}`);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Invalid');
+  return data;
+}
+
+// ── Show upload screen ────────────────────────────────────────────────────
+function showUploadScreen(info) {
+  linkInfo = info;
+  document.getElementById('code-screen').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('upload-label').textContent = info.label || 'Secure Upload';
+  const remaining = info.max_files !== null ? info.max_files - info.files_uploaded : null;
+  if (remaining !== null) {
+    document.getElementById('limit-hint').textContent = `${remaining} file(s) remaining on this link`;
+  }
+}
+
+// ── Code form ─────────────────────────────────────────────────────────────
+document.getElementById('code-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (!code) return;
+  const alert = document.getElementById('code-alert');
+  try {
+    const info = await verify(null, code);
+    CODE = code;
+    showUploadScreen(info);
+  } catch(err) {
+    showAlert(alert, err.message);
+  }
+});
+
+// ── File selection ────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileList  = document.getElementById('file-list');
+const uploadBtn = document.getElementById('upload-btn');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  addFiles([...e.dataTransfer.files]);
+});
+fileInput.addEventListener('change', () => { addFiles([...fileInput.files]); fileInput.value = ''; });
+
+function addFiles(files) {
+  selectedFiles = [...selectedFiles, ...files];
+  renderFileList();
+}
+
+function renderFileList() {
+  uploadBtn.disabled = selectedFiles.length === 0;
+  if (!selectedFiles.length) { fileList.innerHTML = ''; return; }
+  fileList.innerHTML = selectedFiles.map((f, i) => `
+    <div class="file-item" id="file-item-${i}">
+      <span class="file-item-icon">${fileIcon(f.name)}</span>
+      <div class="file-item-info">
+        <div class="file-item-name">${escHtml(f.name)}</div>
+        <div class="file-item-size">${fmtSize(f.size)}</div>
+      </div>
+      <span class="file-item-status status-pending" id="status-${i}">Pending</span>
+      <button class="btn btn-ghost btn-sm" onclick="removeFile(${i})" id="remove-${i}">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeFile(i) {
+  selectedFiles.splice(i, 1);
+  renderFileList();
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────
+uploadBtn.addEventListener('click', async () => {
+  if (!selectedFiles.length) return;
+  const alert = document.getElementById('upload-alert');
+  hideAlert(alert);
+
+  uploadBtn.disabled = true;
+  dropZone.style.pointerEvents = 'none';
+
+  const progressWrap = document.getElementById('progress-wrap');
+  const progressBar  = document.getElementById('progress-bar');
+  progressWrap.classList.add('show');
+  progressBar.style.width = '0%';
+
+  // Set all to uploading
+  selectedFiles.forEach((_, i) => {
+    const s = document.getElementById(`status-${i}`);
+    if (s) { s.className = 'file-item-status status-uploading'; s.textContent = 'Uploading…'; }
+    const r = document.getElementById(`remove-${i}`);
+    if (r) r.disabled = true;
+  });
+
+  const formData = new FormData();
+  selectedFiles.forEach(f => formData.append('files', f));
+
+  const q = TOKEN ? `token=${TOKEN}` : `code=${CODE}`;
+
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `/api/upload?${q}`);
+
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) {
+        progressBar.style.width = Math.round(e.loaded / e.total * 100) + '%';
+      }
+    };
+
+    const result = await new Promise((resolve, reject) => {
+      xhr.onload = () => {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 400) reject(new Error(data.error || 'Upload failed'));
+        else resolve(data);
+      };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.send(formData);
+    });
+
+    progressBar.style.width = '100%';
+
+    // Show success
+    const names = result.files.map(f => f.name);
+    document.getElementById('upload-screen').style.display = 'none';
+    document.getElementById('success-screen').style.display = 'flex';
+    document.getElementById('success-count').textContent =
+      `${result.files.length} file${result.files.length !== 1 ? 's' : ''} uploaded successfully.`;
+    document.getElementById('success-file-list').innerHTML = result.files.map(f => `
+      <div class="file-item">
+        <span class="file-item-icon">${fileIcon(f.name)}</span>
+        <div class="file-item-info">
+          <div class="file-item-name">${escHtml(f.name)}</div>
+          <div class="file-item-size">${fmtSize(f.size)}</div>
+        </div>
+        <span class="file-item-status status-done">✓ Done</span>
+      </div>
+    `).join('');
+    selectedFiles = [];
+
+  } catch(err) {
+    showAlert(alert, err.message);
+    selectedFiles.forEach((_, i) => {
+      const s = document.getElementById(`status-${i}`);
+      if (s) { s.className = 'file-item-status status-error'; s.textContent = 'Failed'; }
+    });
+    uploadBtn.disabled = false;
+    dropZone.style.pointerEvents = '';
+    progressWrap.classList.remove('show');
+  }
+});
+
+// ── Upload more ───────────────────────────────────────────────────────────
+document.getElementById('upload-more-btn').addEventListener('click', () => {
+  selectedFiles = [];
+  document.getElementById('success-screen').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+  renderFileList();
+  document.getElementById('progress-wrap').classList.remove('show');
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('upload-btn').disabled = true;
+  document.getElementById('drop-zone').style.pointerEvents = '';
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+(async () => {
+  if (TOKEN || CODE) {
+    try {
+      const info = await verify(TOKEN, CODE);
+      showUploadScreen(info);
+    } catch(err) {
+      // Fall back to code entry
+      document.getElementById('code-screen').style.display = 'flex';
+      showAlert(document.getElementById('code-alert'), err.message);
+    }
+  } else {
+    document.getElementById('code-screen').style.display = 'flex';
+  }
+})();
+</script>
+</body>
+</html>
