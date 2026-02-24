@@ -702,7 +702,7 @@ tr:hover td { background: rgba(0,217,255,.025); }
   }
   .resp-table td[data-label=""]::before { display: none; }
   .resp-table td[data-label=""] { justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
-  .resp-table .empty-row td { display: table-cell; }
+  .resp-table .empty-row td { display: block; }
   .resp-table .copy-row { flex: 1; min-width: 0; }
   .resp-table .copy-row input { min-width: 0; width: 0; }
 }
