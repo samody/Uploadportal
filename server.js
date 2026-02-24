@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE_MB || '100', 10) * 1024 * 1024;
