@@ -12,20 +12,21 @@
 <div id="code-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">☁️</div>
+      <div class="brand-icon">☁</div>
       <div>
         <div class="brand-sub">Secure Upload</div>
       </div>
     </div>
-    <h1>Enter Access Code</h1>
-    <p class="subtitle">Enter your upload code to continue.</p>
+    <h1>Enter Upload Code</h1>
+    <p class="subtitle">Enter the upload code you received to continue.</p>
     <div id="code-alert" class="alert"></div>
     <form id="code-form">
       <div class="form-group">
         <label>Upload Code</label>
         <div class="code-input-row">
-          <input type="text" id="code-input" maxlength="8" placeholder="XXXXXX" autocomplete="off" spellcheck="false">
-          <button type="submit" class="btn btn-primary">Go</button>
+          <input type="text" id="code-input" maxlength="8" placeholder="A1B2C3"
+                 autocomplete="off" spellcheck="false" inputmode="text" aria-label="Upload code">
+          <button type="submit" class="btn btn-primary">Enter</button>
         </div>
       </div>
     </form>
@@ -37,7 +38,7 @@
 <div id="upload-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">☁️</div>
+      <div class="brand-icon">☁</div>
       <div>
         <div class="brand-sub" id="upload-label">Secure Upload</div>
       </div>
@@ -45,11 +46,13 @@
 
     <div id="upload-alert" class="alert"></div>
 
-    <div class="drop-zone" id="drop-zone">
-      <div class="drop-zone-icon">☁️</div>
-      <strong>Drop files here</strong>
-      <p>or click to browse</p>
-      <p class="mt-8 text-sm text-muted" id="limit-hint"></p>
+    <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Select files to upload">
+      <span class="drop-zone-icon">☁</span>
+      <div class="drop-primary drop-desktop">Drop files here</div>
+      <div class="drop-primary drop-touch">Tap to Select Files</div>
+      <div class="drop-secondary drop-desktop">or <strong>click to browse</strong></div>
+      <div class="drop-secondary drop-touch">Tap anywhere in this area</div>
+      <div class="drop-secondary mt-8" id="limit-hint" style="font-size:11px;color:var(--muted)"></div>
       <input type="file" id="file-input" multiple>
     </div>
 
@@ -60,10 +63,14 @@
     </div>
 
     <div class="mt-16 flex gap-8">
-      <button class="btn btn-primary btn-full" id="upload-btn" disabled>Upload Files</button>
+      <button class="btn btn-primary btn-full" id="upload-btn" disabled>
+        <span id="upload-btn-text">Upload Files</span>
+      </button>
     </div>
 
-    <p class="mt-8 text-muted text-sm" style="text-align:center">Max file size: <span id="max-size-hint">100 MB</span> per file</p>
+    <p class="mt-8 text-muted text-sm" style="text-align:center">
+      Max file size: <span id="max-size-hint">100 MB</span> per file
+    </p>
     <a href="/" class="home-link">← Return to Portal</a>
   </div>
 </div>
@@ -143,12 +150,17 @@ document.getElementById('code-form').addEventListener('submit', async e => {
   const code = document.getElementById('code-input').value.trim().toUpperCase();
   if (!code) return;
   const alert = document.getElementById('code-alert');
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = '...';
   try {
     const info = await verify(null, code);
     CODE = code;
     showUploadScreen(info);
   } catch(err) {
     showAlert(alert, err.message);
+    btn.disabled = false;
+    btn.textContent = 'Enter';
   }
 });
 
@@ -159,8 +171,11 @@ const fileList  = document.getElementById('file-list');
 const uploadBtn = document.getElementById('upload-btn');
 
 dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('dragleave', e => {
+  if (!dropZone.contains(e.relatedTarget)) dropZone.classList.remove('dragover');
+});
 dropZone.addEventListener('drop', e => {
   e.preventDefault();
   dropZone.classList.remove('dragover');
@@ -175,6 +190,14 @@ function addFiles(files) {
 
 function renderFileList() {
   uploadBtn.disabled = selectedFiles.length === 0;
+  const btnText = document.getElementById('upload-btn-text');
+  if (selectedFiles.length > 0) {
+    btnText.textContent = selectedFiles.length === 1
+      ? 'Upload 1 File'
+      : `Upload ${selectedFiles.length} Files`;
+  } else {
+    btnText.textContent = 'Upload Files';
+  }
   if (!selectedFiles.length) { fileList.innerHTML = ''; return; }
   fileList.innerHTML = selectedFiles.map((f, i) => `
     <div class="file-item" id="file-item-${i}">
@@ -184,7 +207,7 @@ function renderFileList() {
         <div class="file-item-size">${fmtSize(f.size)}</div>
       </div>
       <span class="file-item-status status-pending" id="status-${i}">Pending</span>
-      <button class="btn btn-ghost btn-sm" onclick="removeFile(${i})" id="remove-${i}">✕</button>
+      <button class="btn btn-ghost btn-sm" onclick="removeFile(${i})" id="remove-${i}" aria-label="Remove file">✕</button>
     </div>
   `).join('');
 }
@@ -205,6 +228,7 @@ uploadBtn.addEventListener('click', async () => {
   hideAlert(alert);
 
   uploadBtn.disabled = true;
+  document.getElementById('upload-btn-text').textContent = 'Uploading…';
   dropZone.style.pointerEvents = 'none';
 
   const progressWrap = document.getElementById('progress-wrap');
@@ -271,6 +295,7 @@ uploadBtn.addEventListener('click', async () => {
       if (s) { s.className = 'file-item-status status-error'; s.textContent = 'Failed'; }
     });
     uploadBtn.disabled = false;
+    document.getElementById('upload-btn-text').textContent = 'Retry Upload';
     dropZone.style.pointerEvents = '';
     progressWrap.classList.remove('show');
   }
@@ -285,6 +310,7 @@ document.getElementById('upload-more-btn').addEventListener('click', () => {
   document.getElementById('progress-wrap').classList.remove('show');
   document.getElementById('progress-bar').style.width = '0%';
   document.getElementById('upload-btn').disabled = true;
+  document.getElementById('upload-btn-text').textContent = 'Upload Files';
   document.getElementById('drop-zone').style.pointerEvents = '';
 });
 

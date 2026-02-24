@@ -12,20 +12,21 @@
 <div id="code-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">📡</div>
+      <div class="brand-icon">⬇</div>
       <div>
-        <div class="brand-sub">File Access</div>
+        <div class="brand-sub">File Download</div>
       </div>
     </div>
-    <h1>Enter Access Code</h1>
+    <h1>Enter Share Code</h1>
     <p class="subtitle">Enter the share code you received to download the file.</p>
     <div id="code-alert" class="alert"></div>
     <form id="code-form">
       <div class="form-group">
         <label>Share Code</label>
         <div class="code-input-row">
-          <input type="text" id="code-input" maxlength="8" placeholder="XXXXXX" autocomplete="off" spellcheck="false">
-          <button type="submit" class="btn btn-primary">Go</button>
+          <input type="text" id="code-input" maxlength="8" placeholder="A1B2C3"
+                 autocomplete="off" spellcheck="false" inputmode="text" aria-label="Share code">
+          <button type="submit" class="btn btn-primary">Enter</button>
         </div>
       </div>
     </form>
@@ -37,7 +38,7 @@
 <div id="download-screen" class="page-center" style="display:none">
   <div class="card">
     <div class="brand">
-      <div class="brand-icon">📡</div>
+      <div class="brand-icon">⬇</div>
       <div>
         <div class="brand-sub" id="share-label">Shared File</div>
       </div>
@@ -46,23 +47,24 @@
     <div id="download-alert" class="alert"></div>
 
     <div class="file-info-card">
-      <div class="file-big-icon" id="file-icon">📄</div>
+      <span class="file-big-icon" id="file-icon">📄</span>
       <div class="file-big-name" id="file-name">filename.ext</div>
       <div class="file-big-size" id="file-size">0 B</div>
     </div>
 
+    <div class="dl-meta-row">
+      <span>Downloads: <strong id="dl-count">0</strong></span>
+      <span id="expires-info"></span>
+    </div>
+
     <div class="mt-16">
-      <div class="flex items-center justify-between mt-4 text-sm text-muted" style="margin-bottom:16px">
-        <span>Downloads: <strong id="dl-count" style="color:var(--text)">0</strong></span>
-        <span id="expires-info"></span>
-      </div>
-      <button class="btn btn-success btn-full" id="download-btn">
-        ⬇ Download File
+      <button class="btn btn-success btn-full" id="download-btn" style="min-height:52px;font-size:14px;letter-spacing:1.5px">
+        ⬇&nbsp; Download File
       </button>
     </div>
 
-    <p class="mt-8 text-muted text-sm" style="text-align:center">
-      The download will start automatically when you click the button above.
+    <p class="mt-8 text-muted text-sm text-center">
+      The download will start when you tap the button above.
     </p>
     <a href="/" class="home-link">← Return to Portal</a>
   </div>
@@ -139,6 +141,13 @@ function showDownloadScreen(info) {
   document.getElementById('file-name').textContent = info.original_name;
   document.getElementById('file-size').textContent = fmtSize(info.size);
   document.getElementById('dl-count').textContent = info.download_count;
+
+  const expiryEl = document.getElementById('expires-info');
+  if (info.expires_at) {
+    expiryEl.textContent = fmtExpiry(info.expires_at);
+  } else {
+    expiryEl.textContent = 'No expiry';
+  }
 }
 
 function showError(title, msg) {
@@ -155,12 +164,17 @@ document.getElementById('code-form').addEventListener('submit', async e => {
   const code = document.getElementById('code-input').value.trim().toUpperCase();
   if (!code) return;
   const alert = document.getElementById('code-alert');
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = '...';
   try {
     const info = await verify(null, code);
     CODE = code;
     showDownloadScreen(info);
   } catch(err) {
     showAlert(alert, err.message);
+    btn.disabled = false;
+    btn.textContent = 'Enter';
   }
 });
 

@@ -10,25 +10,32 @@
 <div class="page-center">
   <div class="card" style="text-align:center;max-width:440px">
 
-    <div class="portal-emblem">✦</div>
+    <div class="portal-emblem">⬡</div>
 
-    <h1 style="margin-bottom:8px">Access Portal</h1>
-    <p class="subtitle">Enter your access code to continue.</p>
+    <h1 style="margin-bottom:8px">File Portal</h1>
+    <p class="subtitle">Enter your access code to securely upload or receive files.</p>
+
+    <div class="feature-row">
+      <span class="feature-pill">☁ Upload Files</span>
+      <span class="feature-pill">⬇ Download Files</span>
+    </div>
 
     <div id="code-alert" class="alert"></div>
 
     <form id="code-form">
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom:8px">
+        <label>Access Code</label>
         <div class="code-input-row">
-          <input type="text" id="code-input" maxlength="8" placeholder="_ _ _ _ _ _"
-                 autocomplete="off" spellcheck="false" autofocus>
-          <button type="submit" class="btn btn-primary">Go</button>
+          <input type="text" id="code-input" maxlength="8" placeholder="A1B2C3"
+                 autocomplete="off" spellcheck="false" autofocus
+                 inputmode="text" aria-label="Access code">
+          <button type="submit" class="btn btn-primary" style="padding-left:20px;padding-right:20px">Enter</button>
         </div>
       </div>
     </form>
 
-    <p class="mt-24 text-muted text-sm">
-      <a href="/admin">Admin Access</a>
+    <p class="mt-24 text-muted text-sm" style="text-align:center">
+      <a href="/admin">Admin Dashboard →</a>
     </p>
   </div>
 </div>
@@ -60,7 +67,7 @@ document.getElementById('code-form').addEventListener('submit', async e => {
     alertEl.className = 'alert alert-error show';
     alertEl.textContent = err.message;
     btn.disabled = false;
-    btn.textContent = 'Go';
+    btn.textContent = 'Enter';
   }
 });
 </script>

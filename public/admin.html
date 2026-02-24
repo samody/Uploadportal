@@ -17,15 +17,15 @@
         <div class="brand-sub">Admin Portal</div>
       </div>
     </div>
-    <h1>Sign in</h1>
-    <p class="subtitle">Enter your admin password to continue.</p>
+    <h1>Sign In</h1>
+    <p class="subtitle">Enter your admin password to manage the portal.</p>
     <div id="login-alert" class="alert alert-error"></div>
     <form id="login-form">
       <div class="form-group">
         <label>Password</label>
         <input type="password" id="login-password" placeholder="Admin password" autocomplete="current-password" required>
       </div>
-      <button type="submit" class="btn btn-primary btn-full">Sign in</button>
+      <button type="submit" class="btn btn-primary btn-full">Sign In</button>
     </form>
     <a href="/" class="home-link">← Return to Portal</a>
   </div>
@@ -34,27 +34,36 @@
 <!-- ── Admin Shell ────────────────────────────────────────────────────────── -->
 <div id="admin-shell" class="admin-shell" style="display:none">
 
-  <!-- Sidebar -->
+  <!-- Sidebar (desktop) -->
   <nav class="sidebar">
     <div class="brand">
       <div class="brand-icon">⚡</div>
       <div>
-        <div class="brand-sub">Admin</div>
+        <div class="brand-sub">Admin Panel</div>
       </div>
     </div>
     <div class="sidebar-nav">
-      <div class="nav-item active" data-section="upload-links">🔗 Upload Links</div>
-      <div class="nav-item" data-section="files">📄 Files</div>
-      <div class="nav-item" data-section="share-links">🌐 Share Links</div>
+      <div class="nav-item active" data-section="upload-links">🔗&nbsp; Upload Links</div>
+      <div class="nav-item" data-section="files">📄&nbsp; Files</div>
+      <div class="nav-item" data-section="share-links">🌐&nbsp; Share Links</div>
     </div>
     <div class="sidebar-footer">
-      <button class="btn btn-ghost btn-full btn-sm" id="logout-btn">↩ Sign out</button>
+      <button class="btn btn-ghost btn-full btn-sm" id="logout-btn">↩ Sign Out</button>
       <a href="/" class="home-link" style="margin-top:4px">← Portal</a>
     </div>
   </nav>
 
   <!-- Main Content -->
   <main class="main-content">
+
+    <!-- Mobile logout bar (shown only on mobile) -->
+    <div class="mobile-logout-bar">
+      <span style="font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase">⚡ Admin</span>
+      <div style="display:flex;gap:10px;align-items:center">
+        <a href="/" style="font-size:11px;color:var(--muted)">← Portal</a>
+        <button class="btn btn-ghost btn-sm" id="logout-btn-mobile">↩ Sign Out</button>
+      </div>
+    </div>
 
     <!-- ── Upload Links ──────────────────────────────────────────────────── -->
     <div class="section active" id="section-upload-links">
@@ -64,7 +73,7 @@
           <button class="btn btn-primary btn-sm" id="new-upload-link-btn">+ New Link</button>
         </div>
         <div id="upload-links-alert" class="alert" style="margin:16px 20px 0;"></div>
-        <div style="overflow-x:auto">
+        <div class="resp-table">
           <table id="upload-links-table">
             <thead><tr>
               <th>Label</th><th>Code</th><th>Link</th><th>Files</th><th>Expires</th><th>Status</th><th></th>
@@ -85,7 +94,7 @@
           <button class="btn btn-ghost btn-sm" id="refresh-files-btn">↻ Refresh</button>
         </div>
         <div id="files-alert" class="alert" style="margin:16px 20px 0;"></div>
-        <div style="overflow-x:auto">
+        <div class="resp-table">
           <table id="files-table">
             <thead><tr>
               <th>Name</th><th>Size</th><th>Uploaded</th><th>Via Link</th><th></th>
@@ -106,7 +115,7 @@
           <button class="btn btn-ghost btn-sm" id="refresh-share-btn">↻ Refresh</button>
         </div>
         <div id="share-links-alert" class="alert" style="margin:16px 20px 0;"></div>
-        <div style="overflow-x:auto">
+        <div class="resp-table">
           <table id="share-links-table">
             <thead><tr>
               <th>File</th><th>Label</th><th>Code</th><th>Link</th><th>Downloads</th><th>Expires</th><th>Status</th><th></th>
@@ -140,7 +149,7 @@
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" id="ul-cancel">Cancel</button>
-      <button class="btn btn-primary" id="ul-create">Create</button>
+      <button class="btn btn-primary" id="ul-create">Create Link</button>
     </div>
   </div>
 </div>
@@ -257,7 +266,7 @@ function showResult(title, linkUrl, code) {
       <label>Direct Link</label>
       <div class="copy-row">
         <input type="text" value="${linkUrl}" id="result-link-input" readonly>
-        <button class="btn btn-ghost btn-sm" onclick="copyText('${linkUrl}');this.textContent='Copied!'">Copy</button>
+        <button class="btn btn-ghost btn-sm" onclick="copyText('${linkUrl}');this.textContent='✓ Copied'">Copy</button>
       </div>
     </div>
   `;
@@ -268,17 +277,23 @@ function showResult(title, linkUrl, code) {
 document.getElementById('login-form').addEventListener('submit', async e => {
   e.preventDefault();
   const pw = document.getElementById('login-password').value;
-  const alert = document.getElementById('login-alert');
+  const alertEl = document.getElementById('login-alert');
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  btn.textContent = '...';
   try {
     const { sessionId } = await api('POST', '/api/admin/login', { password: pw });
     SESSION = sessionId;
     localStorage.setItem('admin_session', SESSION);
     showAdmin();
   } catch (err) {
-    showAlert(alert, err.message);
+    showAlert(alertEl, err.message);
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
   }
 });
 document.getElementById('logout-btn').addEventListener('click', logout);
+document.getElementById('logout-btn-mobile').addEventListener('click', logout);
 
 // ── Nav ───────────────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -299,25 +314,30 @@ async function loadUploadLinks() {
   tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Loading…</td></tr>';
   try {
     const links = await api('GET', '/api/admin/upload-links');
-    if (!links.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No upload links yet.</td></tr>'; return; }
+    if (!links.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No upload links yet. Create one to get started.</td></tr>';
+      return;
+    }
     tbody.innerHTML = links.map(l => {
       const expired = isExpired(l.expires_at);
       const limitHit = l.max_files !== null && l.files_uploaded >= l.max_files;
       const active = l.active && !expired && !limitHit;
       const uploadUrl = `${BASE}/upload?token=${l.token}`;
+      const statusLabel = active ? 'Active' : expired ? 'Expired' : limitHit ? 'Full' : 'Disabled';
+      const statusClass = active ? 'badge-green' : 'badge-red';
       return `<tr>
-        <td>${l.label || '<span class="text-muted">—</span>'}</td>
-        <td><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${l.code}</span></td>
-        <td>
+        <td data-label="Label">${l.label || '<span class="text-muted">—</span>'}</td>
+        <td data-label="Code"><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:2px">${l.code}</span></td>
+        <td data-label="Link">
           <div class="copy-row" style="gap:4px">
             <input type="text" value="${uploadUrl}" style="font-size:11px" readonly>
             <button class="btn btn-ghost btn-sm" onclick="copyText('${uploadUrl}');this.textContent='✓'">Copy</button>
           </div>
         </td>
-        <td>${l.files_uploaded}${l.max_files !== null ? ' / ' + l.max_files : ''}</td>
-        <td>${fmtDate(l.expires_at)}</td>
-        <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? 'Active' : expired ? 'Expired' : limitHit ? 'Full' : 'Disabled'}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteUploadLink(${l.id})">Revoke</button></td>
+        <td data-label="Files">${l.files_uploaded}${l.max_files !== null ? ' / ' + l.max_files : ''}</td>
+        <td data-label="Expires">${fmtDate(l.expires_at)}</td>
+        <td data-label="Status"><span class="badge ${statusClass}">${statusLabel}</span></td>
+        <td data-label=""><button class="btn btn-danger btn-sm" onclick="deleteUploadLink(${l.id})">Revoke</button></td>
       </tr>`;
     }).join('');
   } catch(err) {
@@ -336,6 +356,8 @@ document.getElementById('ul-create').addEventListener('click', async () => {
   const label = document.getElementById('ul-label').value.trim();
   const max_files = document.getElementById('ul-max-files').value || null;
   const expires_in_hours = document.getElementById('ul-expires').value || null;
+  const btn = document.getElementById('ul-create');
+  btn.disabled = true;
   try {
     const link = await api('POST', '/api/admin/upload-links', {
       label,
@@ -347,6 +369,9 @@ document.getElementById('ul-create').addEventListener('click', async () => {
     showResult('Upload Link Created', `${BASE}/upload?token=${link.token}`, link.code);
   } catch(err) {
     showAlert(document.getElementById('upload-links-alert'), err.message);
+    document.getElementById('new-upload-modal').classList.remove('show');
+  } finally {
+    btn.disabled = false;
   }
 });
 
@@ -366,14 +391,19 @@ async function loadFiles() {
   tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
   try {
     const files = await api('GET', '/api/admin/files');
-    if (!files.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No files uploaded yet.</td></tr>'; return; }
+    if (!files.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No files uploaded yet.</td></tr>';
+      return;
+    }
     tbody.innerHTML = files.map(f => `<tr>
-      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(f.original_name)}">${escHtml(f.original_name)}</td>
-      <td class="text-muted">${fmtSize(f.size)}</td>
-      <td class="text-muted">${fmtDate(f.uploaded_at)}</td>
-      <td>${f.upload_label ? escHtml(f.upload_label) : (f.upload_code || '<span class="text-muted">—</span>')}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="openShareModal(${f.id},'${escHtml(f.original_name).replace(/'/g,'\\&apos;')}')">Share</button>
+      <td data-label="Name" style="max-width:260px" title="${escHtml(f.original_name)}">
+        <span class="truncate" style="max-width:220px;display:block">${escHtml(f.original_name)}</span>
+      </td>
+      <td data-label="Size" class="text-muted">${fmtSize(f.size)}</td>
+      <td data-label="Uploaded" class="text-muted" style="white-space:nowrap">${fmtDate(f.uploaded_at)}</td>
+      <td data-label="Via Link">${f.upload_label ? escHtml(f.upload_label) : (f.upload_code || '<span class="text-muted">—</span>')}</td>
+      <td data-label="" style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="openShareModal(${f.id},'${escHtml(f.original_name).replace(/'/g,'\\&#39;')}')">Share</button>
         <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})">Delete</button>
       </td>
     </tr>`).join('');
@@ -412,25 +442,32 @@ async function loadShareLinks() {
   tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Loading…</td></tr>';
   try {
     const links = await api('GET', '/api/admin/share-links');
-    if (!links.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No share links yet.</td></tr>'; return; }
+    if (!links.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No share links yet. Go to Files to create one.</td></tr>';
+      return;
+    }
     tbody.innerHTML = links.map(sl => {
       const expired = isExpired(sl.expires_at);
       const active = sl.active && !expired;
       const shareUrl = `${BASE}/share?token=${sl.token}`;
+      const statusLabel = active ? 'Active' : expired ? 'Expired' : 'Revoked';
+      const statusClass = active ? 'badge-green' : 'badge-red';
       return `<tr>
-        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(sl.original_name)}</td>
-        <td>${sl.label || '<span class="text-muted">—</span>'}</td>
-        <td><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${sl.code}</span></td>
-        <td>
+        <td data-label="File" style="max-width:180px">
+          <span class="truncate" style="max-width:160px;display:block">${escHtml(sl.original_name)}</span>
+        </td>
+        <td data-label="Label">${sl.label || '<span class="text-muted">—</span>'}</td>
+        <td data-label="Code"><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:2px">${sl.code}</span></td>
+        <td data-label="Link">
           <div class="copy-row" style="gap:4px">
             <input type="text" value="${shareUrl}" style="font-size:11px" readonly>
             <button class="btn btn-ghost btn-sm" onclick="copyText('${shareUrl}');this.textContent='✓'">Copy</button>
           </div>
         </td>
-        <td>${sl.download_count}</td>
-        <td>${fmtDate(sl.expires_at)}</td>
-        <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? 'Active' : expired ? 'Expired' : 'Revoked'}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="revokeShareLink(${sl.id})">Revoke</button></td>
+        <td data-label="Downloads">${sl.download_count}</td>
+        <td data-label="Expires" style="white-space:nowrap">${fmtDate(sl.expires_at)}</td>
+        <td data-label="Status"><span class="badge ${statusClass}">${statusLabel}</span></td>
+        <td data-label=""><button class="btn btn-danger btn-sm" onclick="revokeShareLink(${sl.id})">Revoke</button></td>
       </tr>`;
     }).join('');
   } catch(err) {
@@ -444,6 +481,8 @@ document.getElementById('sl-create').addEventListener('click', async () => {
   const file_id = parseInt(document.getElementById('sl-file-id').value);
   const label = document.getElementById('sl-label').value.trim();
   const expires_in_hours = document.getElementById('sl-expires').value || null;
+  const btn = document.getElementById('sl-create');
+  btn.disabled = true;
   try {
     const sl = await api('POST', '/api/admin/share-links', {
       file_id, label,
@@ -453,6 +492,9 @@ document.getElementById('sl-create').addEventListener('click', async () => {
     showResult('Share Link Created', `${BASE}/share?token=${sl.token}`, sl.code);
   } catch(err) {
     showAlert(document.getElementById('share-links-alert'), err.message);
+    document.getElementById('new-share-modal').classList.remove('show');
+  } finally {
+    btn.disabled = false;
   }
 });
 
