@@ -42,7 +42,7 @@ cp .env.example .env
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `3000` | Server port |
+| `PORT` | `3001` | Server port |
 | `ADMIN_PASSWORD` | `changeme` | Admin login password — **change before deploying** |
 | `MAX_FILE_SIZE_MB` | `100` | Maximum file size per upload (MB) |
 
@@ -56,20 +56,23 @@ npm run dev
 npm start
 ```
 
-The server starts at `http://localhost:3000`.
+The server starts at `http://localhost:3001`.
 
 ## Usage
 
 ### Admin Portal
 
-Go to `http://localhost:3000/admin` and log in with your configured password.
+Go to `http://localhost:3001/admin` and log in with your configured password. The public
+landing page does not link here — navigate to `/admin` directly.
 
 From the dashboard you can:
 
 - Create upload links (with optional labels, file limits, and expiration)
-- Browse and delete uploaded files
+- Upload files directly, without going through an upload link
+- Browse, download, and delete uploaded files
 - Create share links for any uploaded file
-- Revoke any active link
+- Revoke a link (disable it, keep its history) or delete it outright
+- Copy any code or link to the clipboard
 - Track download counts
 
 ### Uploading Files
@@ -120,12 +123,26 @@ From the dashboard you can:
 | POST | `/api/admin/logout` | End session |
 | GET | `/api/admin/upload-links` | List upload links |
 | POST | `/api/admin/upload-links` | Create upload link |
-| DELETE | `/api/admin/upload-links/:id` | Revoke upload link |
+| POST | `/api/admin/upload-links/:id/revoke` | Disable link, keep the row and its history |
+| DELETE | `/api/admin/upload-links/:id` | Delete link row (uploaded files are kept) |
 | GET | `/api/admin/files` | List files |
-| DELETE | `/api/admin/files/:id` | Delete file |
+| POST | `/api/admin/files` | Upload files directly (multipart, no upload link) |
+| GET | `/api/admin/files/:id/download` | Download a file |
+| DELETE | `/api/admin/files/:id` | Delete file (its share links cascade) |
 | GET | `/api/admin/share-links` | List share links |
 | POST | `/api/admin/share-links` | Create share link |
-| DELETE | `/api/admin/share-links/:id` | Revoke share link |
+| POST | `/api/admin/share-links/:id/revoke` | Disable link, keep the row and its count |
+| DELETE | `/api/admin/share-links/:id` | Delete link row (the file is kept) |
+
+**Revoke vs. delete.** Revoking sets `active=0` — the code stops working but the row and its
+counts remain visible. Deleting removes the row outright. Deleting an upload link does *not*
+delete the files uploaded through it; they simply lose their link association
+(`files.upload_link_id` is `ON DELETE SET NULL`). Deleting a *file*, by contrast, cascades to
+the share links pointing at it.
+
+> Admin file downloads authenticate via the `x-session-id` header, which a plain link
+> navigation cannot send. Clients must fetch the endpoint with the header and save the
+> response body rather than pointing an `<a href>` at it.
 
 ## License
 

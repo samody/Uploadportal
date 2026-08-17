@@ -113,9 +113,18 @@ app.post('/api/admin/upload-links', adminAuth, (req, res) => {
   res.json(link);
 });
 
-// DELETE /api/admin/upload-links/:id
+// POST /api/admin/upload-links/:id/revoke — disable, keep the row and its history
+app.post('/api/admin/upload-links/:id/revoke', adminAuth, (req, res) => {
+  const info = db.prepare('UPDATE upload_links SET active=0 WHERE id=?').run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+// DELETE /api/admin/upload-links/:id — remove the row.
+// files.upload_link_id is ON DELETE SET NULL, so uploaded files survive.
 app.delete('/api/admin/upload-links/:id', adminAuth, (req, res) => {
-  db.prepare('UPDATE upload_links SET active=0 WHERE id=?').run(req.params.id);
+  const info = db.prepare('DELETE FROM upload_links WHERE id=?').run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
@@ -130,6 +139,40 @@ app.get('/api/admin/files', adminAuth, (req, res) => {
     ORDER BY f.uploaded_at DESC
   `).all();
   res.json(files);
+});
+
+// POST /api/admin/files — upload straight into the library, no upload link needed.
+// adminAuth runs BEFORE multer so an unauthenticated request never writes to disk.
+app.post('/api/admin/files', adminAuth, upload.array('files', 20), (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: 'No files provided' });
+  }
+
+  const insertFile = db.prepare(
+    'INSERT INTO files (original_name,stored_name,size,mimetype,upload_link_id) VALUES (?,?,?,?,NULL)'
+  );
+  const uploaded = [];
+
+  const txn = db.transaction(() => {
+    for (const f of req.files) {
+      const info = insertFile.run(f.originalname, f.filename, f.size, f.mimetype);
+      uploaded.push({ id: info.lastInsertRowid, name: f.originalname, size: f.size });
+    }
+  });
+  txn();
+
+  res.json({ ok: true, files: uploaded });
+});
+
+// GET /api/admin/files/:id/download
+app.get('/api/admin/files/:id/download', adminAuth, (req, res) => {
+  const file = db.prepare('SELECT * FROM files WHERE id=?').get(req.params.id);
+  if (!file) return res.status(404).json({ error: 'Not found' });
+
+  const filePath = path.join(UPLOADS_DIR, file.stored_name);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found on server' });
+
+  res.download(filePath, file.original_name);
 });
 
 // DELETE /api/admin/files/:id
@@ -181,9 +224,17 @@ app.post('/api/admin/share-links', adminAuth, (req, res) => {
   res.json(sl);
 });
 
-// DELETE /api/admin/share-links/:id
+// POST /api/admin/share-links/:id/revoke — disable, keep the row and its counts
+app.post('/api/admin/share-links/:id/revoke', adminAuth, (req, res) => {
+  const info = db.prepare('UPDATE share_links SET active=0 WHERE id=?').run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+// DELETE /api/admin/share-links/:id — remove the row. The file itself is untouched.
 app.delete('/api/admin/share-links/:id', adminAuth, (req, res) => {
-  db.prepare('UPDATE share_links SET active=0 WHERE id=?').run(req.params.id);
+  const info = db.prepare('DELETE FROM share_links WHERE id=?').run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Portal</title>
+<title>Portal</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -14,10 +14,10 @@
     <div class="brand">
       <div class="brand-icon">✦</div>
       <div>
-        <div class="brand-sub">Admin Portal</div>
+        <div class="brand-sub">Sign In</div>
       </div>
     </div>
-    <h1>Admin Access</h1>
+    <h1>Portal</h1>
     <p class="subtitle">Enter your admin password to continue.</p>
     <div id="login-alert" class="alert alert-error"></div>
     <form id="login-form">
@@ -27,7 +27,7 @@
       </div>
       <button type="submit" class="btn btn-primary btn-full">Sign in</button>
     </form>
-    <a href="/" class="home-link">← Return to Portal</a>
+    <a href="/" class="home-link">← Access Terminal</a>
   </div>
 </div>
 
@@ -39,7 +39,7 @@
     <div class="brand">
       <div class="brand-icon">✦</div>
       <div>
-        <div class="brand-sub">Admin</div>
+        <div class="brand-sub">Portal</div>
       </div>
     </div>
     <div class="sidebar-nav">
@@ -49,7 +49,7 @@
     </div>
     <div class="sidebar-footer">
       <button class="btn btn-ghost btn-full btn-sm" id="logout-btn">↩ Sign out</button>
-      <a href="/" class="home-link" style="margin-top:4px">← Portal</a>
+      <a href="/" class="home-link" style="margin-top:4px">← Access Terminal</a>
     </div>
   </nav>
 
@@ -82,7 +82,10 @@
       <div class="panel">
         <div class="panel-header">
           <h2 style="margin:0">Uploaded Files</h2>
-          <button class="btn btn-ghost btn-sm" id="refresh-files-btn">↻ Refresh</button>
+          <div class="flex gap-8">
+            <button class="btn btn-primary btn-sm" id="admin-upload-btn">+ Upload Files</button>
+            <button class="btn btn-ghost btn-sm" id="refresh-files-btn">↻ Refresh</button>
+          </div>
         </div>
         <div id="files-alert" class="alert" style="margin:16px 20px 0;"></div>
         <div style="overflow-x:auto">
@@ -169,6 +172,33 @@
   </div>
 </div>
 
+<!-- ── Admin Upload Modal ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="admin-upload-modal">
+  <div class="modal">
+    <div class="modal-title">Upload Files</div>
+
+    <div id="au-alert" class="alert"></div>
+
+    <div class="drop-zone" id="au-drop-zone">
+      <div class="drop-zone-icon">▲</div>
+      <strong>Drop files here</strong>
+      <p>or click to browse</p>
+      <input type="file" id="au-file-input" multiple style="display:none">
+    </div>
+
+    <div class="file-list" id="au-file-list"></div>
+
+    <div class="progress-wrap" id="au-progress-wrap">
+      <div class="progress-bar" id="au-progress-bar" style="width:0%"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="au-cancel">Cancel</button>
+      <button class="btn btn-primary" id="au-submit" disabled>Upload</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Result Modal (show link + code) ───────────────────────────────────── -->
 <div class="modal-overlay" id="result-modal">
   <div class="modal">
@@ -234,16 +264,55 @@ function fmtDate(s) {
 }
 function isExpired(s) { return s && new Date(s) < new Date(); }
 
-function copyText(text) {
-  navigator.clipboard.writeText(text).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
-  });
+// ── Clipboard ─────────────────────────────────────────────────────────────
+// navigator.clipboard only exists in a secure context (HTTPS or localhost).
+// Served over plain HTTP it is undefined, so we must feature-detect it and
+// fall back to execCommand rather than assume the promise API is there.
+function legacyCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0';
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, ta.value.length);
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  return ok;
 }
+
+async function copyText(text, btn) {
+  let ok = false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch { ok = false; }
+  }
+  if (!ok) ok = legacyCopy(text);
+  if (btn) flashBtn(btn, ok ? '✓' : '✕');
+  return ok;
+}
+
+// Briefly swap a button's label, then restore it.
+function flashBtn(btn, msg) {
+  if (btn.dataset.restore) return;           // already flashing
+  btn.dataset.restore = btn.textContent;
+  btn.textContent = msg;
+  setTimeout(() => {
+    btn.textContent = btn.dataset.restore;
+    delete btn.dataset.restore;
+  }, 1200);
+}
+
+// One delegated handler serves every [data-copy] button, including rows
+// rendered after page load. Avoids quoting values into inline onclick.
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-copy]');
+  if (!btn) return;
+  copyText(btn.dataset.copy, btn);
+});
 
 // ── Result modal ──────────────────────────────────────────────────────────
 function showResult(title, linkUrl, code) {
@@ -251,13 +320,16 @@ function showResult(title, linkUrl, code) {
   document.getElementById('result-body').innerHTML = `
     <div class="form-group">
       <label>Access Code</label>
-      <div class="code-display">${code}</div>
+      <div class="copy-row">
+        <div class="code-display" style="flex:1">${escHtml(code)}</div>
+        <button class="btn btn-ghost btn-sm" data-copy="${escHtml(code)}">Copy</button>
+      </div>
     </div>
     <div class="form-group">
       <label>Direct Link</label>
       <div class="copy-row">
-        <input type="text" value="${linkUrl}" id="result-link-input" readonly>
-        <button class="btn btn-ghost btn-sm" onclick="copyText('${linkUrl}');this.textContent='Copied!'">Copy</button>
+        <input type="text" value="${escHtml(linkUrl)}" id="result-link-input" readonly>
+        <button class="btn btn-ghost btn-sm" data-copy="${escHtml(linkUrl)}">Copy</button>
       </div>
     </div>
   `;
@@ -306,18 +378,26 @@ async function loadUploadLinks() {
       const active = l.active && !expired && !limitHit;
       const uploadUrl = `${BASE}/upload?token=${l.token}`;
       return `<tr>
-        <td>${l.label || '<span class="text-muted">—</span>'}</td>
-        <td><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${l.code}</span></td>
+        <td>${l.label ? escHtml(l.label) : '<span class="text-muted">—</span>'}</td>
         <td>
           <div class="copy-row" style="gap:4px">
-            <input type="text" value="${uploadUrl}" style="font-size:11px" readonly>
-            <button class="btn btn-ghost btn-sm" onclick="copyText('${uploadUrl}');this.textContent='✓'">Copy</button>
+            <span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${escHtml(l.code)}</span>
+            <button class="btn btn-ghost btn-sm" data-copy="${escHtml(l.code)}">Copy</button>
+          </div>
+        </td>
+        <td>
+          <div class="copy-row" style="gap:4px">
+            <input type="text" value="${escHtml(uploadUrl)}" style="font-size:11px" readonly>
+            <button class="btn btn-ghost btn-sm" data-copy="${escHtml(uploadUrl)}">Copy</button>
           </div>
         </td>
         <td>${l.files_uploaded}${l.max_files !== null ? ' / ' + l.max_files : ''}</td>
         <td>${fmtDate(l.expires_at)}</td>
         <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? 'Active' : expired ? 'Expired' : limitHit ? 'Full' : 'Disabled'}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="deleteUploadLink(${l.id})">Revoke</button></td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          ${l.active ? `<button class="btn btn-ghost btn-sm" onclick="revokeUploadLink(${l.id})">Revoke</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteUploadLink(${l.id})">Delete</button>
+        </td>
       </tr>`;
     }).join('');
   } catch(err) {
@@ -350,8 +430,18 @@ document.getElementById('ul-create').addEventListener('click', async () => {
   }
 });
 
+async function revokeUploadLink(id) {
+  if (!confirm('Revoke this upload link?\n\nThe code stops working, but the row and its history are kept.')) return;
+  try {
+    await api('POST', `/api/admin/upload-links/${id}/revoke`);
+    await loadUploadLinks();
+  } catch(err) {
+    showAlert(document.getElementById('upload-links-alert'), err.message);
+  }
+}
+
 async function deleteUploadLink(id) {
-  if (!confirm('Revoke this upload link? Existing files are kept.')) return;
+  if (!confirm('Permanently delete this upload link?\n\nThe row and its history are removed. Files already uploaded through it are kept, but lose their link association.')) return;
   try {
     await api('DELETE', `/api/admin/upload-links/${id}`);
     await loadUploadLinks();
@@ -361,19 +451,25 @@ async function deleteUploadLink(id) {
 }
 
 // ── Files ─────────────────────────────────────────────────────────────────
+let FILES = [];   // cache of the last load, so row actions can look up by id
+
 async function loadFiles() {
   const tbody = document.getElementById('files-body');
   tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Loading…</td></tr>';
   try {
     const files = await api('GET', '/api/admin/files');
+    FILES = files;
     if (!files.length) { tbody.innerHTML = '<tr class="empty-row"><td colspan="5">No files uploaded yet.</td></tr>'; return; }
     tbody.innerHTML = files.map(f => `<tr>
       <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(f.original_name)}">${escHtml(f.original_name)}</td>
       <td class="text-muted">${fmtSize(f.size)}</td>
       <td class="text-muted">${fmtDate(f.uploaded_at)}</td>
-      <td>${f.upload_label ? escHtml(f.upload_label) : (f.upload_code || '<span class="text-muted">—</span>')}</td>
+      <td>${f.upload_link_id === null
+            ? '<span class="badge badge-gray">Direct</span>'
+            : (f.upload_label ? escHtml(f.upload_label) : escHtml(f.upload_code || '—'))}</td>
       <td style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="openShareModal(${f.id},'${escHtml(f.original_name).replace(/'/g,'\\&apos;')}')">Share</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadFile(${f.id})">Download</button>
+        <button class="btn btn-ghost btn-sm" onclick="openShareModal(${f.id})">Share</button>
         <button class="btn btn-danger btn-sm" onclick="deleteFile(${f.id})">Delete</button>
       </td>
     </tr>`).join('');
@@ -384,20 +480,174 @@ async function loadFiles() {
 
 document.getElementById('refresh-files-btn').addEventListener('click', loadFiles);
 
+// ── Admin file upload ─────────────────────────────────────────────────────
+// Mirrors the public upload flow in upload.html: drag/drop or browse, then an
+// XHR POST so we get real progress events.
+let auFiles = [];
+
+const auModal    = document.getElementById('admin-upload-modal');
+const auDropZone = document.getElementById('au-drop-zone');
+const auInput    = document.getElementById('au-file-input');
+const auList     = document.getElementById('au-file-list');
+const auSubmit   = document.getElementById('au-submit');
+const auAlert    = document.getElementById('au-alert');
+const auWrap     = document.getElementById('au-progress-wrap');
+const auBar      = document.getElementById('au-progress-bar');
+
+function auReset() {
+  auFiles = [];
+  auList.innerHTML = '';
+  auSubmit.disabled = true;
+  auSubmit.textContent = 'Upload';
+  auAlert.classList.remove('show');
+  auWrap.classList.remove('show');
+  auBar.style.width = '0%';
+  auDropZone.style.pointerEvents = '';
+  auInput.value = '';
+}
+
+function auRender() {
+  auSubmit.disabled = auFiles.length === 0;
+  auList.innerHTML = auFiles.map((f, i) => `
+    <div class="file-item">
+      <span class="file-item-icon">${fileIcon(f.name)}</span>
+      <div class="file-item-info">
+        <div class="file-item-name">${escHtml(f.name)}</div>
+        <div class="file-item-size">${fmtSize(f.size)}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="auRemove(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function auRemove(i) { auFiles.splice(i, 1); auRender(); }
+
+function fileIcon(name) {
+  const ext = String(name || '').split('.').pop().toLowerCase();
+  const map = {
+    pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊', ppt:'📋', pptx:'📋',
+    zip:'🗜', rar:'🗜', '7z':'🗜', tar:'🗜', gz:'🗜',
+    jpg:'🖼', jpeg:'🖼', png:'🖼', gif:'🖼', webp:'🖼', svg:'🖼',
+    mp4:'🎬', mov:'🎬', avi:'🎬', mkv:'🎬',
+    mp3:'🎵', wav:'🎵', flac:'🎵',
+    js:'💻', ts:'💻', py:'💻', html:'💻', css:'💻', json:'💻',
+    txt:'📃', md:'📃', csv:'📃',
+  };
+  return map[ext] || '📎';
+}
+
+document.getElementById('admin-upload-btn').addEventListener('click', () => {
+  auReset();
+  auModal.classList.add('show');
+});
+document.getElementById('au-cancel').addEventListener('click', () => auModal.classList.remove('show'));
+
+auDropZone.addEventListener('click', () => auInput.click());
+auDropZone.addEventListener('dragover', e => { e.preventDefault(); auDropZone.classList.add('dragover'); });
+auDropZone.addEventListener('dragleave', () => auDropZone.classList.remove('dragover'));
+auDropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  auDropZone.classList.remove('dragover');
+  auFiles = [...auFiles, ...e.dataTransfer.files];
+  auRender();
+});
+auInput.addEventListener('change', () => {
+  auFiles = [...auFiles, ...auInput.files];
+  auInput.value = '';
+  auRender();
+});
+
+auSubmit.addEventListener('click', () => {
+  if (!auFiles.length) return;
+  auAlert.classList.remove('show');
+  auSubmit.disabled = true;
+  auSubmit.textContent = 'Uploading…';
+  auDropZone.style.pointerEvents = 'none';
+  auWrap.classList.add('show');
+  auBar.style.width = '0%';
+
+  const formData = new FormData();
+  auFiles.forEach(f => formData.append('files', f));
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/admin/files');
+  xhr.setRequestHeader('x-session-id', SESSION);
+
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) auBar.style.width = Math.round(e.loaded / e.total * 100) + '%';
+  };
+
+  xhr.onload = async () => {
+    let data = {};
+    try { data = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 400) {
+      showAlert(auAlert, data.error || `Upload failed (${xhr.status})`);
+      auSubmit.disabled = false;
+      auSubmit.textContent = 'Upload';
+      auDropZone.style.pointerEvents = '';
+      auWrap.classList.remove('show');
+      return;
+    }
+    auBar.style.width = '100%';
+    auModal.classList.remove('show');
+    await loadFiles();
+    showAlert(document.getElementById('files-alert'),
+      `${data.files.length} file${data.files.length !== 1 ? 's' : ''} uploaded.`, 'success');
+  };
+
+  xhr.onerror = () => {
+    showAlert(auAlert, 'Network error');
+    auSubmit.disabled = false;
+    auSubmit.textContent = 'Upload';
+    auDropZone.style.pointerEvents = '';
+    auWrap.classList.remove('show');
+  };
+
+  xhr.send(formData);
+});
+
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function openShareModal(fileId, fileName) {
+function openShareModal(fileId) {
+  const file = FILES.find(f => f.id === fileId);
   document.getElementById('sl-file-id').value = fileId;
-  document.getElementById('sl-file-name').value = fileName;
+  document.getElementById('sl-file-name').value = file ? file.original_name : '';
   document.getElementById('sl-label').value = '';
   document.getElementById('sl-expires').value = '';
   document.getElementById('new-share-modal').classList.add('show');
 }
 
+// Auth travels in the x-session-id header, which a plain <a href> navigation
+// cannot send — so fetch the bytes and hand the browser a blob URL instead.
+async function downloadFile(id) {
+  const file = FILES.find(f => f.id === id);
+  const alertEl = document.getElementById('files-alert');
+  try {
+    const r = await fetch(`/api/admin/files/${id}/download`, {
+      headers: { 'x-session-id': SESSION },
+    });
+    if (!r.ok) {
+      const data = await r.json().catch(() => ({}));
+      throw new Error(data.error || `Download failed (${r.status})`);
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file ? file.original_name : `file-${id}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch(err) {
+    showAlert(alertEl, err.message);
+  }
+}
+
 async function deleteFile(id) {
-  if (!confirm('Permanently delete this file? All share links for it will break.')) return;
+  if (!confirm('Permanently delete this file?\n\nAny share links pointing at it are deleted too.')) return;
   try {
     await api('DELETE', `/api/admin/files/${id}`);
     await loadFiles();
@@ -419,18 +669,26 @@ async function loadShareLinks() {
       const shareUrl = `${BASE}/share?token=${sl.token}`;
       return `<tr>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(sl.original_name)}</td>
-        <td>${sl.label || '<span class="text-muted">—</span>'}</td>
-        <td><span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${sl.code}</span></td>
+        <td>${sl.label ? escHtml(sl.label) : '<span class="text-muted">—</span>'}</td>
         <td>
           <div class="copy-row" style="gap:4px">
-            <input type="text" value="${shareUrl}" style="font-size:11px" readonly>
-            <button class="btn btn-ghost btn-sm" onclick="copyText('${shareUrl}');this.textContent='✓'">Copy</button>
+            <span class="code-display" style="font-size:12px;padding:3px 8px;letter-spacing:1px">${escHtml(sl.code)}</span>
+            <button class="btn btn-ghost btn-sm" data-copy="${escHtml(sl.code)}">Copy</button>
+          </div>
+        </td>
+        <td>
+          <div class="copy-row" style="gap:4px">
+            <input type="text" value="${escHtml(shareUrl)}" style="font-size:11px" readonly>
+            <button class="btn btn-ghost btn-sm" data-copy="${escHtml(shareUrl)}">Copy</button>
           </div>
         </td>
         <td>${sl.download_count}</td>
         <td>${fmtDate(sl.expires_at)}</td>
         <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? 'Active' : expired ? 'Expired' : 'Revoked'}</span></td>
-        <td><button class="btn btn-danger btn-sm" onclick="revokeShareLink(${sl.id})">Revoke</button></td>
+        <td style="display:flex;gap:6px;flex-wrap:wrap">
+          ${sl.active ? `<button class="btn btn-ghost btn-sm" onclick="revokeShareLink(${sl.id})">Revoke</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteShareLink(${sl.id})">Delete</button>
+        </td>
       </tr>`;
     }).join('');
   } catch(err) {
@@ -457,7 +715,17 @@ document.getElementById('sl-create').addEventListener('click', async () => {
 });
 
 async function revokeShareLink(id) {
-  if (!confirm('Revoke this share link?')) return;
+  if (!confirm('Revoke this share link?\n\nThe code stops working, but the row and its download count are kept.')) return;
+  try {
+    await api('POST', `/api/admin/share-links/${id}/revoke`);
+    await loadShareLinks();
+  } catch(err) {
+    showAlert(document.getElementById('share-links-alert'), err.message);
+  }
+}
+
+async function deleteShareLink(id) {
+  if (!confirm('Permanently delete this share link?\n\nThe row and its download count are removed. The file itself is kept.')) return;
   try {
     await api('DELETE', `/api/admin/share-links/${id}`);
     await loadShareLinks();
