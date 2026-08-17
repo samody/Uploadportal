@@ -3,64 +3,90 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Secure File Portal</title>
+<title>Access Terminal</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <div class="page-center">
-  <div class="card" style="text-align:center;max-width:440px">
+  <div class="card" style="text-align:center;max-width:430px">
 
     <div class="portal-emblem">✦</div>
 
-    <h1 style="margin-bottom:8px">Access Portal</h1>
-    <p class="subtitle">Enter your access code to continue.</p>
+    <h1>Access Terminal</h1>
+    <p class="subtitle">Enter your access code to continue</p>
 
     <div id="code-alert" class="alert"></div>
 
     <form id="code-form">
       <div class="form-group">
+        <label style="text-align:left">Access Code</label>
         <div class="code-input-row">
-          <input type="text" id="code-input" maxlength="8" placeholder="_ _ _ _ _ _"
+          <input type="text" id="code-input" maxlength="8" placeholder="······"
                  autocomplete="off" spellcheck="false" autofocus>
-          <button type="submit" class="btn btn-primary">Go</button>
         </div>
       </div>
+      <button type="submit" class="btn btn-primary btn-full" id="submit-btn">Authenticate</button>
     </form>
 
-    <p class="mt-24 text-muted text-sm">
-      <a href="/admin">Admin Access</a>
+    <p id="status-line" class="mt-16 text-sm text-muted"
+       style="letter-spacing:1.6px;text-transform:uppercase;font-size:9.5px">
+      ▸ Awaiting input
     </p>
+
+    <a href="/admin" class="home-link">Admin Access →</a>
   </div>
 </div>
 
 <script>
-document.getElementById('code-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const code = document.getElementById('code-input').value.trim().toUpperCase();
-  if (!code) return;
+const form      = document.getElementById('code-form');
+const input     = document.getElementById('code-input');
+const btn       = document.getElementById('submit-btn');
+const alertEl   = document.getElementById('code-alert');
+const statusEl  = document.getElementById('status-line');
 
-  const alertEl = document.getElementById('code-alert');
+function setStatus(text) { statusEl.textContent = '▸ ' + text; }
+
+// Keep the field constrained to the code alphabet as the user types.
+input.addEventListener('input', () => {
+  input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   alertEl.classList.remove('show');
+  setStatus(input.value ? 'Ready' : 'Awaiting input');
+});
 
-  const btn = e.target.querySelector('button[type="submit"]');
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  const code = input.value.trim().toUpperCase();
+  if (!code) { input.focus(); return; }
+
+  alertEl.classList.remove('show');
   btn.disabled = true;
-  btn.textContent = '...';
+  btn.textContent = 'Verifying…';
+  setStatus('Verifying code');
 
   try {
     const r = await fetch(`/api/resolve-code?code=${encodeURIComponent(code)}`);
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'Invalid code');
+    if (!r.ok) throw new Error(data.error || 'Invalid access code');
 
     if (data.type === 'upload') {
+      setStatus('Access granted — upload channel');
+      btn.textContent = 'Connecting…';
       location.href = `/upload?code=${encodeURIComponent(data.code)}`;
     } else if (data.type === 'share') {
+      setStatus('Access granted — download channel');
+      btn.textContent = 'Connecting…';
       location.href = `/share?code=${encodeURIComponent(data.code)}`;
+    } else {
+      throw new Error('Unrecognized code type');
     }
   } catch (err) {
     alertEl.className = 'alert alert-error show';
     alertEl.textContent = err.message;
+    setStatus('Access denied');
     btn.disabled = false;
-    btn.textContent = 'Go';
+    btn.textContent = 'Authenticate';
+    input.focus();
+    input.select();
   }
 });
 </script>
